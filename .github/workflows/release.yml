@@ -45,6 +45,17 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      - name: Version check
+        id: version
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('unity/Packages/${PKG}/package.json'))['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "v$VERSION" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package.json version $VERSION"; exit 1
+          fi
+          grep -q "^## \[$VERSION\]" CHANGELOG.md || { echo "CHANGELOG.md has no section for $VERSION"; exit 1; }
+
+
       - name: OpenXR SDK (headers and loader)
         run: |
           git clone -q --depth 1 --branch "release-${OPENXR_SDK_VERSION}" \

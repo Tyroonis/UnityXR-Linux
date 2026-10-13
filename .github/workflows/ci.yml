@@ -35,3 +35,6 @@ jobs:
         run: |
           mkdir -p -m 700 /tmp/xdg
           ctest --test-dir build --output-on-failure
+
+      - name: Package metas complete
+        run: python3 scripts/ensure-metas.py unity/Packages/com.tyroonis.xr.linuxopenxr --check
