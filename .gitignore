@@ -1,0 +1,14 @@
+# Build output
+native/build/
+native/build-*/
+dist/
+scripts/logs/
+
+# Unity XR SDK headers (Unity Companion License) - fetched by scripts/fetch-unity-headers.sh
+native/third_party/unity-xr-headers/
+
+# Built plugin (created by scripts/build-native.sh)
+unity/Packages/com.tyroonis.xr.linuxopenxr/Runtime/Native~/libLinuxXR.so
+
+# Local machine data
+docs/system-report.txt

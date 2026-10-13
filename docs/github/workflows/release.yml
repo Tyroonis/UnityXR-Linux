@@ -1,0 +1,157 @@
+name: Release
+
+# Push a tag "vX.Y.Z" (must match unity/Packages/com.tyroonis.xr.linuxopenxr/package.json) to
+#   1. run the CI tests,
+#   2. build libLinuxXR.so and libopenxr_loader.so.1 portably (Ubuntu 22.04, glibc 2.35, static libstdc++),
+#   3. pack com.tyroonis.xr.linuxopenxr-X.Y.Z.tgz (signed when the UPM_* secrets are set) and LinuxXR-X.Y.Z.unitypackage,
+#   4. create a GitHub Release with both files and the CHANGELOG section as notes,
+#   5. publish the package to the "upm" branch and the tag "upm/vX.Y.Z"
+#      (Package Manager: https://github.com/tyroonis/<repo>.git#upm or #upm/vX.Y.Z).
+#
+# Optional package signing (removes Unity's "package is not signed" warning for the tarball):
+#   repository secrets UPM_SERVICE_ACCOUNT_KEY_ID, UPM_SERVICE_ACCOUNT_KEY_SECRET and UPM_ORG_ID
+#   (Unity Cloud service account with the role "Package Manager Package Signer"). See CONTRIBUTING.md.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  OPENXR_SDK_VERSION: "1.1.47"
+  PKG: com.tyroonis.xr.linuxopenxr
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    steps:
+      - name: Tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates curl git cmake ninja-build g++-12 python3 libvulkan-dev binutils file
+          update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
+          update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
+          update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-12 100
+          update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-12 100
+
+      - uses: actions/checkout@v4
+
+      - name: Version check
+        id: version
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('unity/Packages/${PKG}/package.json'))['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "v$VERSION" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package.json version $VERSION"; exit 1
+          fi
+          grep -q "^## \[$VERSION\]" CHANGELOG.md || { echo "CHANGELOG.md has no section for $VERSION"; exit 1; }
+
+      - name: OpenXR SDK (headers and loader)
+        run: |
+          git clone -q --depth 1 --branch "release-${OPENXR_SDK_VERSION}" \
+            https://github.com/KhronosGroup/OpenXR-SDK.git /opt/openxr-sdk
+          OPENXR_SDK_SRC=/opt/openxr-sdk ./scripts/build-openxr-loader.sh --version "${OPENXR_SDK_VERSION}"
+
+      - name: Unity XR headers
+        run: |
+          git config --global --add safe.directory '*'
+          ./scripts/fetch-unity-headers.sh
+
+      - name: Build libLinuxXR.so (portable)
+        run: |
+          cmake -S native -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DLINUXXR_STATIC_RUNTIME=ON -DLINUXXR_BUILD_TESTS=OFF \
+            -DOPENXR_INCLUDE_DIR=/opt/openxr-sdk/include
+          cmake --build build
+          SO="unity/Packages/${PKG}/Runtime/Native~/libLinuxXR.so"
+          objdump -p "$SO" | grep NEEDED
+          if objdump -p "$SO" | grep -q 'libstdc++'; then echo "libLinuxXR.so must not depend on libstdc++"; exit 1; fi
+          echo "max glibc: $(objdump -T "$SO" | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -1)"
+
+      - name: Pack .tgz and .unitypackage
+        run: ./scripts/pack-unity-package.sh
+
+      - name: Sign .tgz (optional)
+        env:
+          UPM_SERVICE_ACCOUNT_KEY_ID: ${{ secrets.UPM_SERVICE_ACCOUNT_KEY_ID }}
+          UPM_SERVICE_ACCOUNT_KEY_SECRET: ${{ secrets.UPM_SERVICE_ACCOUNT_KEY_SECRET }}
+          UPM_ORG_ID: ${{ secrets.UPM_ORG_ID }}
+        run: |
+          if [ -z "$UPM_SERVICE_ACCOUNT_KEY_ID" ] || [ -z "$UPM_ORG_ID" ]; then
+            echo "UPM_* secrets not set - the tarball stays unsigned."; exit 0
+          fi
+          curl -fsSL https://cdn.packages.unity.com/upm-cli/install.sh | bash
+          export PATH="$HOME/.upm/bin:$HOME/.local/bin:$PATH"
+          mkdir -p signed
+          upm pack dist/upm --organization-id "$UPM_ORG_ID" --destination signed
+          SIGNED=$(ls signed/*.tgz | head -1)
+          tar -tzf "$SIGNED" | grep -q 'package/.attestation.p7m' || { echo "signed tarball has no attestation"; exit 1; }
+          mv -f "$SIGNED" "dist/${PKG}-${{ steps.version.outputs.version }}.tgz"
+          echo "Tarball signed."
+
+      - name: Release notes from CHANGELOG
+        run: |
+          python3 - "${{ steps.version.outputs.version }}" > dist/RELEASE_NOTES.md <<'PY'
+          import re, sys
+          text = open("CHANGELOG.md", encoding="utf-8").read()
+          m = re.search(r"^## \[" + re.escape(sys.argv[1]) + r"\][^\n]*\n(.*?)(?=^## \[|\Z)", text, re.S | re.M)
+          print(m.group(1).strip() if m else "")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: dist/RELEASE_NOTES.md
+          files: |
+            dist/*.tgz
+            dist/*.unitypackage
+
+      - name: Publish "upm" branch
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          WT=$(mktemp -d)
+          if git ls-remote --exit-code --heads origin upm >/dev/null; then
+            git fetch origin upm
+            git worktree add "$WT" origin/upm
+            git -C "$WT" checkout -B upm
+          else
+            git worktree add --detach "$WT"
+            git -C "$WT" checkout --orphan upm
+          fi
+          find "$WT" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a dist/upm/. "$WT/"
+          git -C "$WT" add -A
+          git -C "$WT" commit -q -m "LinuxXR $VERSION" || echo "nothing changed"
+          git -C "$WT" tag -f "upm/v$VERSION"
+          git -C "$WT" push origin upm
+          git -C "$WT" push -f origin "upm/v$VERSION"

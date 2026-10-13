@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ python3 libvulkan-dev libopenxr-dev libopenxr-loader1 \
+            mesa-vulkan-drivers monado-service || \
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ python3 libvulkan-dev libopenxr-dev libopenxr-loader1 mesa-vulkan-drivers
+
+      - name: Unity XR headers
+        run: ./scripts/fetch-unity-headers.sh
+
+      - name: Build
+        run: |
+          cmake -S native -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake --build build
+
+      - name: Test (Monado integration is skipped when monado-service is unavailable)
+        env:
+          XDG_RUNTIME_DIR: /tmp/xdg
+        run: |
+          mkdir -p -m 700 /tmp/xdg
+          ctest --test-dir build --output-on-failure
+
+      - name: Package metas complete
+        run: python3 scripts/ensure-metas.py unity/Packages/com.tyroonis.xr.linuxopenxr --check
