@@ -1,0 +1,24 @@
+{
+  "name": "com.tyroonis.xr.linuxopenxr",
+  "displayName": "LinuxXR (OpenXR for Linux Editor)",
+  "version": "0.3.3",
+  "unity": "6000.0",
+  "description": "Unity XR provider for the Linux Editor: press Play and run your VR project on a Meta Quest through WiVRn (OpenXR + Vulkan) - no SteamVR, no Meta Link. Editor-only; Android builds keep using Unity OpenXR.",
+  "keywords": [
+    "xr",
+    "openxr",
+    "linux",
+    "wivrn",
+    "monado",
+    "vulkan",
+    "quest"
+  ],
+  "author": {
+    "name": "Tyroonis"
+  },
+  "license": "GPL-3.0-or-later",
+  "licensesUrl": "https://www.gnu.org/licenses/gpl-3.0.html",
+  "dependencies": {
+    "com.unity.xr.management": "4.5.0"
+  }
+}
