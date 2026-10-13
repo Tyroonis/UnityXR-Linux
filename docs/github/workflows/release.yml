@@ -43,7 +43,7 @@ jobs:
           update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-12 100
           update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-12 100
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Version check
         id: version
@@ -118,11 +118,11 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: dist
           path: dist
