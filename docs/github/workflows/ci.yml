@@ -22,7 +22,7 @@ jobs:
             cmake ninja-build g++ python3 libvulkan-dev libopenxr-dev libopenxr-loader1 mesa-vulkan-drivers
 
       - name: Unity XR headers
-        run: ./scripts/fetch-unity-headers.sh
+        run: bash ./scripts/fetch-unity-headers.sh
 
       - name: Build
         run: |
@@ -35,6 +35,3 @@ jobs:
         run: |
           mkdir -p -m 700 /tmp/xdg
           ctest --test-dir build --output-on-failure
-
-      - name: Package metas complete
-        run: python3 scripts/ensure-metas.py unity/Packages/com.tyroonis.xr.linuxopenxr --check

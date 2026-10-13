@@ -1,0 +1,28 @@
+{
+    "name": "Tyroonis.XR.LinuxXR.Editor",
+    "rootNamespace": "Tyroonis.XR.LinuxXR.Editor",
+    "references": [
+        "Tyroonis.XR.LinuxXR",
+        "Unity.XR.Management",
+        "Unity.XR.Management.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "LINUXXR_XR_MANAGEMENT"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.xr.management",
+            "expression": "4.0.0",
+            "define": "LINUXXR_XR_MANAGEMENT"
+        }
+    ],
+    "noEngineReferences": false
+}

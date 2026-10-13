@@ -7,8 +7,8 @@
 #
 #   ./build-openxr-loader.sh [--version 1.1.47]
 #
-# Needs: git, cmake, ninja or make, a C++ compiler, python3. No X11/Wayland dev packages are needed
-# (the loader is built without the platform-specific test/hello_xr parts).
+# Needs: git, cmake, ninja or make, a C++ compiler, python3 and the Xlib headers (libx11-dev; the loader
+# does not link X11, but the OpenXR-SDK configure step requires the headers).
 set -euo pipefail
 
 VERSION="1.1.47"

@@ -1,0 +1,16 @@
+{
+    "name": "Tyroonis.XR.LinuxXR.Bootstrap",
+    "rootNamespace": "Tyroonis.XR.LinuxXR.Bootstrap",
+    "references": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -37,7 +37,7 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            ca-certificates curl git cmake ninja-build g++-12 python3 libvulkan-dev binutils file
+            ca-certificates curl git cmake ninja-build g++-12 python3 libvulkan-dev libx11-dev binutils file
           update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
           update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
           update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-12 100
@@ -48,6 +48,7 @@ jobs:
       - name: Version check
         id: version
         run: |
+          # The version of the package; later steps (signing, release notes) use it.
           VERSION=$(python3 -c "import json; print(json.load(open('unity/Packages/${PKG}/package.json'))['version'])")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "v$VERSION" != "${GITHUB_REF_NAME}" ]; then
@@ -59,12 +60,12 @@ jobs:
         run: |
           git clone -q --depth 1 --branch "release-${OPENXR_SDK_VERSION}" \
             https://github.com/KhronosGroup/OpenXR-SDK.git /opt/openxr-sdk
-          OPENXR_SDK_SRC=/opt/openxr-sdk ./scripts/build-openxr-loader.sh --version "${OPENXR_SDK_VERSION}"
+          OPENXR_SDK_SRC=/opt/openxr-sdk bash ./scripts/build-openxr-loader.sh --version "${OPENXR_SDK_VERSION}"
 
       - name: Unity XR headers
         run: |
           git config --global --add safe.directory '*'
-          ./scripts/fetch-unity-headers.sh
+          bash ./scripts/fetch-unity-headers.sh
 
       - name: Build libLinuxXR.so (portable)
         run: |
@@ -78,7 +79,7 @@ jobs:
           echo "max glibc: $(objdump -T "$SO" | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -1)"
 
       - name: Pack .tgz and .unitypackage
-        run: ./scripts/pack-unity-package.sh
+        run: bash ./scripts/pack-unity-package.sh
 
       - name: Sign .tgz (optional)
         env:
